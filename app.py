@@ -1,30 +1,44 @@
 import streamlit as st
+import cv2
+import numpy as np
 from PIL import Image, ImageEnhance
-import cv2  # Optional, for OpenCV functions
-from io import BytesIO
-st.title("Image Processing App")
 
-# Image Upload Section
-uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+# App title
+st.title("Advanced Image Processing App")
+st.write("Upload an image and apply various transformations.")
 
-if uploaded_file is not None:
+# File uploader
+uploaded_file = st.file_uploader("Upload your image", type=["jpg", "jpeg", "png"])
+
+if uploaded_file:
+    # Load the image
     image = Image.open(uploaded_file)
     st.image(image, caption="Original Image", use_column_width=True)
+    
+    # Convert to NumPy array for OpenCV processing
+    img_array = np.array(image)
 
-    # Add Processing Options (e.g., sliders, checkboxes)
-    brightness_factor = st.slider("Adjust Brightness", 0.5, 2.0, 1.0)
-    contrast_factor = st.slider("Adjust Contrast", 0.5, 2.0, 1.0)
+    # Sidebar options
+    st.sidebar.title("Processing Options")
+    
+    # Apply blur
+    blur_amount = st.sidebar.slider("Blur", 0, 50, 0)
+    if blur_amount > 0:
+        img_array = cv2.GaussianBlur(img_array, (blur_amount * 2 + 1, blur_amount * 2 + 1), 0)
 
-    # Apply Image Processing (example: brightness and contrast adjustment)
-    enhanced_image = ImageEnhance.Brightness(image).enhance(brightness_factor)
-    enhanced_image = ImageEnhance.Contrast(enhanced_image).enhance(contrast_factor)
+    # Rotate image
+    rotate_angle = st.sidebar.slider("Rotate (degrees)", 0, 360, 0)
+    if rotate_angle > 0:
+        (h, w) = img_array.shape[:2]
+        center = (w // 2, h // 2)
+        matrix = cv2.getRotationMatrix2D(center, rotate_angle, 1.0)
+        img_array = cv2.warpAffine(img_array, matrix, (w, h))
 
-    # Display Processed Image
-    st.image(enhanced_image, caption="Processed Image", use_column_width=True)
+    # Adjust contrast
+    contrast_factor = st.sidebar.slider("Contrast", 0.5, 3.0, 1.0)
+    if contrast_factor != 1.0:
+        enhancer = ImageEnhance.Contrast(Image.fromarray(img_array))
+        img_array = np.array(enhancer.enhance(contrast_factor))
 
-    # Optional: Download Button
-    download_button = st.button("Download Processed Image")
-    if download_button:
-        with BytesIO() as buffer:
-            enhanced_image.save(buffer, format="JPEG")
-            btn_txt = st.download_button(label="Download", data=buffer.getvalue(), file_name="processed_image.jpg", mime="image/jpeg")
+    # Display the processed image
+    st.image(img_array, caption="Processed Image", use_column_width=True)
